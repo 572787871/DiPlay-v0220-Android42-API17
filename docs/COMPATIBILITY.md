@@ -4,7 +4,7 @@ This public preview is an independent receiver, not an Apple-certified CarPlay a
 
 | Area | Current scope |
 | --- | --- |
-| Head unit | Official Android 9+ (API 28+) APK; Android 8 and older are unsupported; Wi-Fi Direct has a firmware-dependent legacy Android 9 path with unverified requested frequency, and modern verified frequency on Android 10+ |
+| Head unit | Upstream's official APK targets Android 9+. This local legacy fork has an API 19 installation floor and KitKat-specific implementations; this is not a verified hardware support list. See the T3 validation record below. |
 | Phone | Standard, non-jailbroken iPhone with CarPlay enabled; device/iOS compatibility varies |
 | Physical evidence | Previous private builds: wired and wireless picture, touch and audio confirmed on the development car with iPhone XS / iOS 18.7.10 |
 | Other cars | Mixed community reports across DiLink generations; not a certified model support list |
@@ -16,14 +16,14 @@ This public preview is an independent receiver, not an Apple-certified CarPlay a
 
 | Android version | Wired USB | Manual car hotspot | LocalOnlyHotspot | Wi-Fi Direct group |
 | --- | --- | --- | --- | --- |
-| 4.4 (API 19) | Compatibility USB control/request backend | Yes | Platform unavailable | Platform configuration unavailable |
-| 5–7 (API 21–25) | Framework USB backend | Yes | Platform unavailable | Falls back to manual hotspot |
-| 8–9 (API 26–28) | Framework USB backend | Yes | Yes | Falls back to LocalOnlyHotspot |
+| 4.4 (API 19) | Raw configuration/alternate descriptors + authorized usbfs backend | Legacy interface discovery | Platform unavailable | System-generated group, firmware-dependent; no configurable group API |
+| 5–7 (API 21–25) | Framework USB backend | Legacy interface discovery | Platform unavailable | Legacy group backend, firmware-dependent |
+| 8–9 (API 26–28) | Framework USB backend | Yes | Yes | Legacy group backend; Android 8 can fall back to LocalOnlyHotspot |
 | 10+ (API 29+) | Framework USB backend | Yes | Yes | Yes |
 
 The feature choice remains visible across versions, but a mode that the operating system cannot provide is mapped to the closest supported backend. The classic View UI, legacy media-button receiver, pre-channel notifications, pre-23 audio recording/playback, pre-21 codec buffers, multidex and desugared Java APIs keep the same application flow available on API 19.
 
-The API 19, 21, 24 and 27 emulator matrix validates installation, activity creation, native-library loading and absence of class-verification/API-level crashes. USB, MFi, Bluetooth handoff, radio behavior, HUD integration and sustained audio/video still require physical head-unit and iPhone testing; an emulator cannot validate those peripherals.
+Emulator checks do not validate T3 USB drivers, Bluetooth RFCOMM, radio behavior, iPhone accessory acceptance, HUD integration or sustained video/audio. The current API 19 software checks and their exact limits are recorded in [T3 / Android 4.4 validation](T3-ANDROID44-VALIDATION.md); do not infer a physical connection result from an installation or UI test.
 
 ## BYD HUD and car hotspot
 

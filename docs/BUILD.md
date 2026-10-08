@@ -128,7 +128,10 @@ The build rejects unexpected credential containers in APK assets.
 DIPLAY_AUTH_ASSETS_DIR=/absolute/path/to/runtime-assets ./gradlew :mobile:assembleStandaloneDebug
 ```
 
-The task stops if either required file is absent or empty.
+The task stops if either required file is absent, empty or invalid. It loads the
+key and certificate, checks P-256 key matching, and verifies repeated challenge
+signatures and rejection of changed challenges before packaging. This checks local
+identity consistency, not iPhone trust or a successful CarPlay session.
 Its APK output is `mobile/build/outputs/apk/debug/mobile-debug.apk`.
 Check both files in the APK against your selected local inputs:
 
@@ -156,7 +159,7 @@ Keep the keystore and passwords outside Git.
 Run the release checks and build:
 
 ```sh
-./gradlew :shared:testDebugUnitTest :common:testDebugUnitTest :mobile:lintRelease :mobile:assembleRelease
+./gradlew :shared:testDebugUnitTest :common:testDebugUnitTest :mobile:lintRelease :mobile:assembleStandaloneRelease
 ```
 
 The output is `mobile/build/outputs/apk/release/mobile-release.apk`.

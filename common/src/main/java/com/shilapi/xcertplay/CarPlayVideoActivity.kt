@@ -160,15 +160,17 @@ class CarPlayVideoActivity : Activity() {
         fun timeText() = TextView(this).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-            fontFeatureSettings = "tnum"
+            if (Build.VERSION.SDK_INT >= 21) fontFeatureSettings = "tnum"
         }
         position = timeText()
         length = timeText()
         timeBar = SeekBar(this).apply {
-            progressTintList = ColorStateList.valueOf(Color.WHITE)
-            thumbTintList = ColorStateList.valueOf(Color.WHITE)
-            secondaryProgressTintList = ColorStateList.valueOf(0x80FFFFFF.toInt())
-            progressBackgroundTintList = ColorStateList.valueOf(0x4DFFFFFF)
+            if (Build.VERSION.SDK_INT >= 21) {
+                progressTintList = ColorStateList.valueOf(Color.WHITE)
+                thumbTintList = ColorStateList.valueOf(Color.WHITE)
+                secondaryProgressTintList = ColorStateList.valueOf(0x80FFFFFF.toInt())
+                progressBackgroundTintList = ColorStateList.valueOf(0x4DFFFFFF)
+            }
             minimumHeight = dp(48)
             setPadding(dp(20), dp(16), dp(20), dp(16))
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {

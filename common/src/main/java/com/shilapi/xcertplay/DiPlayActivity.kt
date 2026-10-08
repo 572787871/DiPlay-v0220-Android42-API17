@@ -739,7 +739,7 @@ class DiPlayActivity : ComponentActivity() {
             isSelected = selected
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) foreground = focusRing(12)
             contentDescription = getString(R.string.settings_open_category, title)
-            background = android.graphics.drawable.RippleDrawable(
+            background = compatibleRipple(
                 ColorStateList.valueOf(RIPPLE),
                 GradientDrawable().apply {
                     setColor(if (selected) RAIL_SELECTED else Color.TRANSPARENT)
@@ -1519,7 +1519,7 @@ class DiPlayActivity : ComponentActivity() {
                             render()
                             markReconnectNeeded()
                         }
-                        val allowed = DiLink51ClusterMonitor.hasAccess(this)
+                        val allowed = Build.VERSION.SDK_INT >= 21 && DiLink51ClusterMonitor.hasAccess(this)
                         card.addView(label(if (allowed) getString(R.string.usage_access_enabled)
                             else getString(R.string.usage_access_setup_needed_for_automatic_mode), 14, if (allowed) MUTED else WARNING))
                         card.addView(actionButton(getString(R.string.automatic_map_setup_adb), false) { showClusterAccessSetup() }, matchButton(10, 56))
@@ -2179,7 +2179,7 @@ class DiPlayActivity : ComponentActivity() {
             slider = SeekBar(context).apply {
                 max = steps.lastIndex
                 progress = steps.indexOf(current).coerceIn(steps.indices)
-                minHeight = dp(44)
+                minimumHeight = dp(44)
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                         val value = steps[progress.coerceIn(steps.indices)]
@@ -2227,7 +2227,7 @@ class DiPlayActivity : ComponentActivity() {
         }, matchButton(0, 56))
         body.addView(label(getString(R.string.cluster_adb_multi_device, packageName), 14, MUTED))
         body.addView(label(getString(R.string.s_3_tap_check_and_enable_below_this_enables_the_cluster_ma), 16, TEXT))
-        val status = label(if (DiLink51ClusterMonitor.hasAccess(this)) getString(R.string.permission_enabled_ready) else getString(R.string.permission_not_enabled), 16, TEXT)
+        val status = label(if (Build.VERSION.SDK_INT >= 21 && DiLink51ClusterMonitor.hasAccess(this)) getString(R.string.permission_enabled_ready) else getString(R.string.permission_not_enabled), 16, TEXT)
         body.addView(status)
         val dialog = AlertDialog.Builder(this).setTitle(getString(R.string.automatic_cluster_map_setup))
             .setView(ScrollView(this).apply { addView(body) })
@@ -2235,7 +2235,7 @@ class DiPlayActivity : ComponentActivity() {
             .setPositiveButton(getString(R.string.check_and_enable), null).create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (DiLink51ClusterMonitor.hasAccess(this)) {
+                if (Build.VERSION.SDK_INT >= 21 && DiLink51ClusterMonitor.hasAccess(this)) {
                     AirPlayPersistence.saveClusterMapEnabled(this, true)
                     DiLink51ClusterLayout.saveAutomatic(this, true)
                     dialog.dismiss()
@@ -3278,7 +3278,7 @@ class DiPlayActivity : ComponentActivity() {
         BydOutputSettings.wheelSpeedToIphone(this) || BydOutputSettings.videoWhileParked(this)
 
     private fun hasPreciseLocation() =
-        checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     // The cluster screen is described at connection time, so a running session reconnects over
     // its current link. The position choices need no call: getString(R.string.apply_and_reconnect) already does it.
@@ -3654,7 +3654,7 @@ class DiPlayActivity : ComponentActivity() {
             setImageBitmap(custom ?: BitmapFactory.decodeResource(resources, R.raw.ic_car_home))
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = rounded(SURFACE, BORDER)
-            clipToOutline = true
+            if (Build.VERSION.SDK_INT >= 21) clipToOutline = true
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }, LinearLayout.LayoutParams(dp(72), dp(72)).apply { marginEnd = dp(16) })
         val text = column()
@@ -4137,7 +4137,7 @@ class DiPlayActivity : ComponentActivity() {
         val target = channelButtons.getOrNull(index) ?: return
         target.isSelected = selected
         target.setTextColor(if (selected) BG else TEXT)
-        target.background = android.graphics.drawable.RippleDrawable(
+        target.background = compatibleRipple(
             ColorStateList.valueOf(RIPPLE),
             rounded(if (selected) ACCENT else SURFACE, if (selected) ACCENT else BORDER),
             null
@@ -4303,8 +4303,9 @@ class DiPlayActivity : ComponentActivity() {
     private fun button(title: String, primary: Boolean, click: () -> Unit) = SettingButton(this).apply {
         isAllCaps = false; textSize = 18f; setTextColor(if (primary) BG else TEXT)
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(RIPPLE), rounded(if (primary) ACCENT else BUTTON, if (primary) ACCENT else BORDER), null)
-        setPadding(dp(16), 0, dp(16), 0); minHeight = dp(56); stateListAnimator = null
+        background = compatibleRipple(ColorStateList.valueOf(RIPPLE), rounded(if (primary) ACCENT else BUTTON, if (primary) ACCENT else BORDER), null)
+        setPadding(dp(16), 0, dp(16), 0); minHeight = dp(56)
+        if (Build.VERSION.SDK_INT >= 21) stateListAnimator = null
         compoundDrawablePadding = dp(12)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) foreground = focusRing()
         text = title

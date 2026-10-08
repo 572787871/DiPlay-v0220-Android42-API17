@@ -227,6 +227,7 @@ class ManualHotspotManager(
     }
 
     private fun frequencyFromConnectionInfo(): Int? {
+        if (Build.VERSION.SDK_INT < 21) return null
         val connectionInfo = try {
             wifiManager.connectionInfo
         } catch (_: SecurityException) {

@@ -48,12 +48,8 @@ internal object CarPlayCallKeys {
             // Sent by the system (BYD's window manager), so it has to be exported.
             runCatching {
                 val filter = IntentFilter(CarPlayCallKeyPolicy.ACTION_BYD_HANG_UP)
-                if (android.os.Build.VERSION.SDK_INT >= 33) {
-                    app.registerReceiver(receiver, filter, android.Manifest.permission.DUMP, null,
-                        Context.RECEIVER_EXPORTED)
-                } else {
-                    app.registerReceiver(receiver, filter, android.Manifest.permission.DUMP, null)
-                }
+                androidx.core.content.ContextCompat.registerReceiver(app, receiver, filter,
+                    android.Manifest.permission.DUMP, null, androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
             }.onFailure { Log.w(TAG, "hang-up broadcast unavailable", it) }
             installed = true
         }

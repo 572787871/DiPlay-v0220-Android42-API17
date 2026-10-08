@@ -19,7 +19,7 @@ internal object UsbPermissionSetup {
                 ACCESSIBILITY -> UsbAutoConfirmService.isEnabled(context) &&
                     Settings.Secure.getInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
                 USAGE -> HomeScreenMonitor.hasAccess(context)
-                OVERLAY -> Settings.canDrawOverlays(context)
+                OVERLAY -> android.os.Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context)
             }
         }.getOrDefault(false)
     }

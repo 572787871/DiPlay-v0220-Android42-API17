@@ -49,6 +49,7 @@ internal class BydStandaloneHudOutput private constructor(context: Context) {
             appendLine("standaloneHudAvailable=${available(context)} sdk=${Build.VERSION.SDK_INT}")
             appendLine("firmware=${Build.FINGERPRINT}")
             runCatching {
+                if (Build.VERSION.SDK_INT < 28) return@runCatching
                 val info = context.packageManager.getPackageInfo(TARGET.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
                 val receiver = context.packageManager.getReceiverInfo(TARGET, 0)
                 appendLine("receiver=${TARGET.flattenToString()} version=${info.longVersionCode} system=${(info.applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) ?: 0) != 0}")

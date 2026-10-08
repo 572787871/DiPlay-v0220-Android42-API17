@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.os.Binder
+import android.os.Build
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.util.Log
@@ -92,18 +93,21 @@ class CarPlayVpnService : VpnService() {
             }
             require(hostMac.size == 6) { "hostMac must be 6 bytes" }
 
-            val tunFd = Builder()
+            val builder = Builder()
                 .addAddress(linkLocal, LINK_PREFIX)
                 .addRoute(LINK_LOCAL_ROUTE, LINK_PREFIX)
                 .setSession(SESSION_NAME)
                 .setMtu(TUN_MTU)
-                .setBlocking(true)
-                // An empty app list routes every UID through this VPN. Scope it before establish;
-                // rejection must reach the existing attachment cleanup, never an unscoped retry.
-                .addAllowedApplication(packageName)
-                .establish()
+            if (Build.VERSION.SDK_INT >= 21) {
+                // Never retry a rejected per-app VPN as an unscoped one on supported platforms.
+                builder.setBlocking(true).addAllowedApplication(packageName)
+            }
+            // KitKat has no per-app VPN. Only the IPv6 link-local route above is installed;
+            // no default route, DNS, Wi-Fi internet or mobile internet is captured.
+            val tunFd = builder.establish()
                 ?: throw IOException("VpnService.establish returned null")
             tun = tunFd
+            if (Build.VERSION.SDK_INT < 21) LegacyTunBlocking.enable(tunFd)
 
             val ipv6Bridge = Ipv6NcmBridge(ncm, tunFd, hostMac) { error ->
                 onTransportError(generation, listener, error)

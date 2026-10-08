@@ -1,9 +1,21 @@
 #include <jni.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <linux/usbdevice_fs.h>
+
+JNIEXPORT jint JNICALL
+Java_com_shilapi_xcertplay_network_LegacyTunBlocking_setBlocking(
+        JNIEnv *env, jobject self, jint fd) {
+    (void) env;
+    (void) self;
+    int flags = fcntl(fd, F_GETFL);
+    if (flags < 0) return errno;
+    if (fcntl(fd, F_SETFL, flags & ~O_NONBLOCK) < 0) return errno;
+    return 0;
+}
 
 /* Returns 0 when the interface is claimed, otherwise the final errno. */
 JNIEXPORT jint JNICALL

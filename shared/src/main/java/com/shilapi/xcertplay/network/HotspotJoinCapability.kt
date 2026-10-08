@@ -33,8 +33,10 @@ internal object HotspotJoinCapability {
     } catch (_: Exception) { null }
 
     /** Android sends the current SoftApCapability immediately on registration, even with AP off. */
+    @android.annotation.SuppressLint("BlockedPrivateApi") // Never reflect on API 37+, checked below.
     internal fun read(registration: Registration, timeoutMillis: Long = 2_000): Snapshot? {
         require(timeoutMillis in 1..2_000)
+        if (android.os.Build.VERSION.SDK_INT >= 37) return null
         var callback: IInterface? = null
         var attempted = false
         val active = AtomicBoolean(true)
@@ -57,8 +59,8 @@ internal object HotspotJoinCapability {
                     if (transaction != code || !active.get()) return true
                     try {
                         data.enforceInterface(DESCRIPTOR)
-                        val capability = data.readTypedObject(creator) ?: return true
-                        data.enforceNoDataAvail()
+                        val capability = if (data.readInt() != 0) creator.createFromParcel(data) else return true
+                        if (data.dataAvail() != 0) return true
                         val supported = capabilityType.getMethod("areFeaturesSupported", Long::class.javaPrimitiveType)
                             .invoke(capability, feature) == true
                         val channels = capabilityType.getMethod("getSupportedChannelList", Int::class.javaPrimitiveType)

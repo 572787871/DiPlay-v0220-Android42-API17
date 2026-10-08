@@ -472,11 +472,14 @@ object BydCarPlayCallTool {
     }
 
     private fun alive(processId: String): Boolean = runCatching {
+        if (android.os.Build.VERSION.SDK_INT < 21) return@runCatching java.io.File("/proc/$processId").exists()
         android.system.Os.kill(processId.toInt(), 0)
         true
     }.getOrDefault(false)
 
-    private fun appMayBeAlive(processId: String): Boolean = try {
+    private fun appMayBeAlive(processId: String): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < 21) return java.io.File("/proc/$processId").exists()
+        return try {
         android.system.Os.kill(processId.toInt(), 0)
         true
     } catch (error: android.system.ErrnoException) {
@@ -485,6 +488,7 @@ object BydCarPlayCallTool {
         error.errno != android.system.OsConstants.ESRCH
     } catch (_: Throwable) {
         true
+    }
     }
 
     private fun running(packageName: String, processId: String): Boolean = runCatching {

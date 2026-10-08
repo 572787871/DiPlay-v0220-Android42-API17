@@ -26,9 +26,10 @@ object CarHotspotTethering {
         CANCELLED("Hotspot startup was cancelled"),
     }
 
-    fun permitted(context: Context): Boolean = Settings.System.canWrite(context)
+    fun permitted(context: Context): Boolean = Build.VERSION.SDK_INT < 23 || Settings.System.canWrite(context)
 
     /** Blocking; serialize startup and connection requests, checking cancellation after acquiring the lock. */
+    @android.annotation.SuppressLint("SoonBlockedPrivateApi") // API 37+ uses the bounded ADB fallback instead.
     fun enable(
         context: Context,
         isCancelled: () -> Boolean,
@@ -38,6 +39,7 @@ object CarHotspotTethering {
         val deadline = System.nanoTime() + timeoutMillis * 1_000_000L
         val observedAdbState = AtomicReference<Boolean?>()
         val startReflection: (ResultReceiver) -> Unit = { receiver ->
+            if (Build.VERSION.SDK_INT >= 37) throw NoSuchMethodException("Hidden tethering service is unavailable on API 37+")
             val conn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 context.getSystemService(ConnectivityManager::class.java)
             } else {

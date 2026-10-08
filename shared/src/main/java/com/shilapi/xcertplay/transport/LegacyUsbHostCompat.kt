@@ -112,7 +112,7 @@ internal object LegacyUsbHostCompat {
     }
 
     fun select(connection: UsbDeviceConnection, usbInterface: UsbInterface): SelectResult {
-        if (connection.setInterface(usbInterface)) return SelectResult(true, null)
+        if (Build.VERSION.SDK_INT >= 21 && connection.setInterface(usbInterface)) return SelectResult(true, null)
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) return SelectResult(false, null)
 
         val fd = runCatching { connection.fileDescriptor }.getOrDefault(-1)
@@ -120,11 +120,7 @@ internal object LegacyUsbHostCompat {
             Log.w(TAG, "usbfs set-interface unavailable: invalid fd for iface=${usbInterface.id}")
             return SelectResult(false, null)
         }
-        val alt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            usbInterface.alternateSetting
-        } else {
-            0
-        }
+        val alt = IphoneCarPlayConfiguration.alternateSetting(usbInterface)
         val errno = try {
             LegacyUsbHostNative.setInterface(fd, usbInterface.id, alt)
         } catch (error: LinkageError) {

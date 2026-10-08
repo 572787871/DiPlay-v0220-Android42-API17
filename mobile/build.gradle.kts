@@ -19,8 +19,9 @@ android {
         minSdk = 19
         targetSdk = 37
         multiDexEnabled = true
-        versionCode = 37
-        versionName = "0.2.17-legacy.1"
+        testInstrumentationRunner = "com.shilapi.xcertplay.T3LegacyInstrumentation"
+        versionCode = 38
+        versionName = "0.2.18-t3.1"
 
     }
 
@@ -48,7 +49,7 @@ android {
             optimization {
                 enable = false
             }
-            signingConfig = if (signingConfigs.getByName("release").storeFile?.isFile == true) { signingConfigs.getByName("release") } else { signingConfigs.getByName("debug") }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -58,11 +59,20 @@ android {
     }
 }
 
+val authenticationProbeRuntime by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+}
+
 dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(project(":common"))
     implementation(project(":shared"))
     implementation("androidx.multidex:multidex:2.0.1")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    authenticationProbeRuntime(libs.bouncycastle)
+    authenticationProbeRuntime("org.jetbrains.kotlin:kotlin-stdlib:${libs.versions.kotlin.get()}")
 }
 
 // No implicit import. Only the two explicitly selected local runtime assets are allowed.
@@ -91,7 +101,7 @@ val rejectBundledCredentials by tasks.registering {
 tasks.named("preBuild") { dependsOn(rejectBundledCredentials) }
 
 // Car-test packages must be standalone. Keep ordinary source/CI builds identity-free.
-val verifyStandaloneAuthentication by tasks.registering {
+val requireStandaloneAuthentication by tasks.registering {
     group = "verification"
     description = "Require the explicit runtime authentication input for a standalone car-test APK."
     val directory = localAuthenticationAssets
@@ -103,6 +113,16 @@ val verifyStandaloneAuthentication by tasks.registering {
             directory.resolve("offline-mfi/$it").let { file -> file.isFile && file.length() > 0 }
         }) { "Standalone CarPlay authentication files are missing or empty" }
     }
+}
+val verifyStandaloneAuthentication by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Validate standalone key/certificate matching and challenge signatures before packaging."
+    dependsOn(requireStandaloneAuthentication, ":shared:bundleLibRuntimeToJarDebug")
+    classpath(authenticationProbeRuntime,
+        project(":shared").layout.buildDirectory.file(
+            "intermediates/runtime_library_classes_jar/debug/bundleLibRuntimeToJarDebug/classes.jar"))
+    mainClass.set("com.shilapi.xcertplay.mfi.LocalMfiProbe")
+    localAuthenticationAssets?.let { args(it.resolve("offline-mfi").absolutePath) }
 }
 tasks.named("preBuild") { mustRunAfter(verifyStandaloneAuthentication) }
 tasks.register("assembleStandaloneDebug") {

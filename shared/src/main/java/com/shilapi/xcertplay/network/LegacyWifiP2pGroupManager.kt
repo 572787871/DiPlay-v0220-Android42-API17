@@ -182,7 +182,7 @@ internal class LegacyWifiP2pGroupManager(
 
     private fun checkPrerequisites() {
         if (
-            appContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) !=
+            Build.VERSION.SDK_INT >= 23 && appContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) !=
             PackageManager.PERMISSION_GRANTED
         ) {
             throw IOException("Allow precise Location for DiPlay before using Wi-Fi Direct")

@@ -56,13 +56,13 @@ class MapEmbedService : Service() {
         destroyed = true
         stopObservingSharing?.invoke()
         stopObservingSharing = null
-        embeds.values.toList().forEach { it.release() }
+        if (Build.VERSION.SDK_INT >= 30) embeds.values.toList().forEach { it.release() }
         embeds.clear()
         super.onDestroy()
     }
 
     private fun revokeSharing() {
-        if (destroyed) return
+        if (destroyed || Build.VERSION.SDK_INT < 30) return
         val attached = embeds.values.toList()
         embeds.clear()
         attached.forEach { it.sharingDisabled() }
@@ -70,6 +70,10 @@ class MapEmbedService : Service() {
 
     private fun handle(message: Message) {
         val client = message.replyTo ?: return
+        if (Build.VERSION.SDK_INT < 30) {
+            refuse(client, "legacy Android", ERROR_UNSUPPORTED)
+            return
+        }
         val caller = packageManager.getNameForUid(message.sendingUid) ?: "uid ${message.sendingUid}"
         when (message.what) {
             MSG_ATTACH -> attach(client, caller, message.data)
@@ -128,7 +132,7 @@ class MapEmbedService : Service() {
         try {
             client.send(Message.obtain(null, what).apply { this.data = data })
         } catch (_: RemoteException) {
-            embeds.remove(client.binder)?.release()
+            if (Build.VERSION.SDK_INT >= 30) embeds.remove(client.binder)?.release()
         }
     }
 

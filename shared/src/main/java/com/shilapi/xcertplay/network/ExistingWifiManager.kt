@@ -46,8 +46,12 @@ class ExistingWifiManager(
     private var interfaceIndex = 0
     @Volatile private var interfaceName: String? = null
     private var callbackRegistered = false
+    private var legacy: LegacyExistingWifi? = null
 
-    private val callback = object : ConnectivityManager.NetworkCallback() {
+    private val callback by lazy { if (Build.VERSION.SDK_INT >= 21) modernCallback() else null }
+
+    @androidx.annotation.RequiresApi(21)
+    private fun modernCallback() = object : ConnectivityManager.NetworkCallback() {
         override fun onLost(network: Network) {
             if (network == selected) invalidate("network lost")
         }
@@ -64,6 +68,19 @@ class ExistingWifiManager(
     }
 
     override fun start(timeoutMillis: Long): WirelessHotspotInfo {
+        if (Build.VERSION.SDK_INT < 21) {
+            val adapter = synchronized(lock) {
+                check(!closed) { "Existing Wi-Fi attachment was cancelled" }
+                LegacyExistingWifi(connectivity, wifi, ssid, passphrase,
+                    onDiagnostic, onNetworkChanged).also { legacy = it }
+            }
+            return adapter.start(timeoutMillis)
+        }
+        return startModern(timeoutMillis)
+    }
+
+    @androidx.annotation.RequiresApi(21)
+    private fun startModern(timeoutMillis: Long): WirelessHotspotInfo {
         check(Looper.myLooper() != Looper.getMainLooper()) {
             "ExistingWifiManager.start must not run on the main thread"
         }
@@ -123,9 +140,15 @@ class ExistingWifiManager(
                     hosts = addresses
                     interfaceIndex = iface.index
                     interfaceName = name
-                    connectivity.registerNetworkCallback(NetworkRequest.Builder().clearCapabilities()
+                    connectivity.registerNetworkCallback(NetworkRequest.Builder().apply {
+                        if (Build.VERSION.SDK_INT >= 30) clearCapabilities()
+                        else {
+                            removeCapability(NetworkCapabilities.NET_CAPABILITY_TRUSTED)
+                            removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
+                        }
+                    }
                         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build(), callback)
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build(), checkNotNull(callback))
                     callbackRegistered = true
                 }
                 // Close the gap between reading the link and registering the callback.
@@ -153,6 +176,7 @@ class ExistingWifiManager(
         throw IOException("Existing Wi-Fi attachment was cancelled")
     }
 
+    @androidx.annotation.RequiresApi(21)
     private fun sameLink(properties: LinkProperties): Boolean =
         properties.interfaceName == interfaceName && properties.linkAddresses.any { it.address == host } &&
             existingWifiHostAddresses(properties.linkAddresses.map { it.address }, interfaceIndex).toSet() == hosts.toSet()
@@ -184,8 +208,9 @@ class ExistingWifiManager(
     override fun close() {
         synchronized(lock) {
             closed = true
-            if (callbackRegistered) {
-                connectivity.unregisterNetworkCallback(callback)
+            legacy?.close()
+            if (Build.VERSION.SDK_INT >= 21 && callbackRegistered) {
+                connectivity.unregisterNetworkCallback(checkNotNull(callback))
                 callbackRegistered = false
             }
         }

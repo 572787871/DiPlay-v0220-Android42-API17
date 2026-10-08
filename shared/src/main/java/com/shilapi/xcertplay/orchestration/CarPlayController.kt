@@ -264,7 +264,7 @@ class CarPlayController(
     @Volatile private var firstTcpWatchdog: FirstTcpWatchdog? = null
     private val startupTimer = java.util.concurrent.ScheduledThreadPoolExecutor(1) { task ->
         Thread(task, "diplay-first-tcp-timeout").apply { isDaemon = true }
-    }.apply { removeOnCancelPolicy = true }
+    }.apply { if (Build.VERSION.SDK_INT >= 21) removeOnCancelPolicy = true }
     @Volatile private var wirelessDiagnostics: WirelessStartupDiagnostics? = null
     @Volatile private var bluetoothSocket: BluetoothSocket? = null
     @Volatile private var bluetoothStream: BluetoothRfcommDuplexStream? = null
@@ -1761,6 +1761,20 @@ class CarPlayController(
                 permissionPollGeneration++
                 when (phase) {
                     Phase.REENUMERATION, Phase.IPHONE -> {
+                        if (Build.VERSION.SDK_INT < 21) {
+                            val attempts = reenumerationAttempts
+                            val permissionGeneration = permissionPollGeneration
+                            iphoneHost.inspectCarPlayConfigurationAsync(result.device, executor) { configuration ->
+                                mainHandler.post {
+                                    if (!closed && reenumerationAttempts == attempts &&
+                                        permissionPollGeneration == permissionGeneration &&
+                                        (phase == Phase.REENUMERATION || phase == Phase.IPHONE)) {
+                                        useIphoneConfiguration(result.device, configuration)
+                                    }
+                                }
+                            }
+                            return
+                        }
                         val configuration = IphoneCarPlayConfiguration.find(result.device)
                         connectionDiagnostic(
                             "USB configuration ready=${configuration != null} " +
@@ -1828,11 +1842,47 @@ class CarPlayController(
         onStatus(CarPlayStatus.SelectingConfiguration)
         iphoneHost.requestCarPlayReenumerationAsync(device, executor) { transition ->
             when (transition) {
-                IphoneUsbHost.TransitionResult.ReenumerationRequested ->
+                IphoneUsbHost.TransitionResult.ReenumerationRequested -> {
+                    if (closed || phase != Phase.REENUMERATION) return@requestCarPlayReenumerationAsync
                     onStatus(CarPlayStatus.WaitingForReenumeration)
+                    pollReenumeration(device)
+                }
                 is IphoneUsbHost.TransitionResult.Failed -> fail(transition.error)
             }
         }
+    }
+
+    private fun useIphoneConfiguration(device: UsbDevice, configuration: com.shilapi.xcertplay.transport.CarPlayUsbConfiguration?) {
+        connectionDiagnostic("USB descriptor inspection sdk=${Build.VERSION.SDK_INT} " +
+            "configuration=${configuration?.id ?: "none"} transitions=$reenumerationAttempts")
+        if (configuration != null) openDataPaths(device)
+        else if (reenumerationAttempts < MAXIMUM_REENUMERATION_ATTEMPTS) beginReenumeration(device)
+        else fail(IphoneUsbException.Protocol("iPhone did not expose a complete CarPlay USB configuration"))
+    }
+
+    /** Old vendor USB services sometimes omit ATTACHED after the phone switches configuration. */
+    private fun pollReenumeration(previous: UsbDevice) {
+        val generation = availabilityPollGeneration.incrementAndGet()
+        val started = System.nanoTime()
+        val poll = object : Runnable {
+            override fun run() {
+                if (closed || phase != Phase.REENUMERATION || generation != availabilityPollGeneration.get()) return
+                val elapsed = (System.nanoTime() - started) / 1_000_000
+                val found = iphoneHost.discover().firstOrNull()
+                if (found != null && (found.deviceName != previous.deviceName || elapsed >= 2500)) {
+                    availabilityPollGeneration.incrementAndGet()
+                    connectionDiagnostic("USB transition polling found device after ${elapsed}ms")
+                    requestIphonePermission(found)
+                    return
+                }
+                if (elapsed >= 30000) {
+                    fail(IphoneUsbException.DeviceUnavailable("iPhone USB re-enumeration timed out after 30 seconds"))
+                    return
+                }
+                mainHandler.postDelayed(this, 500)
+            }
+        }
+        mainHandler.postDelayed(poll, 500)
     }
 
     private fun onIphoneAttached(device: UsbDevice) {
@@ -1883,7 +1933,7 @@ class CarPlayController(
     }
 
     private fun openNcm(device: UsbDevice, usbSession: Iap2UsbSession): NcmUsbBridge {
-        val configuration = IphoneCarPlayConfiguration.find(device)
+        val configuration = usbSession.carPlayConfiguration ?: IphoneCarPlayConfiguration.find(device)
             ?: throw IphoneUsbException.Protocol(
                 "iPhone exposes no CarPlay configuration for NCM",
             )

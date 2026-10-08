@@ -12,7 +12,8 @@ junit = "4.13.2"
 bouncycastle = "1.79"
 jmdns = "3.6.3"
 desugarJdkLibs = "2.1.5"
-media3 = "1.11.1"
+# Android 4.4 requires Media3 before 1.5; no manifest minimum-SDK override.
+media3 = "1.4.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

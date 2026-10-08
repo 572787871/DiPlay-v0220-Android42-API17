@@ -134,9 +134,9 @@ object SettingsWidgets {
             // The whole row is the target; the switch stays out of the focus order so D-pad stops once.
             switch.isFocusable = false
             row.isFocusable = true
-            row.background = android.graphics.drawable.RippleDrawable(
+            row.background = com.shilapi.xcertplay.compatibleRipple(
                 ColorStateList.valueOf(ROW_RIPPLE), null, android.graphics.drawable.ColorDrawable(Color.WHITE))
-            row.foreground = android.graphics.drawable.StateListDrawable().apply {
+            if (android.os.Build.VERSION.SDK_INT >= 23) row.foreground = android.graphics.drawable.StateListDrawable().apply {
                 addState(intArrayOf(android.R.attr.state_focused), android.graphics.drawable.GradientDrawable().apply {
                     setColor(Color.TRANSPARENT)
                     cornerRadius = theme.dp(context, 12).toFloat()
@@ -213,10 +213,10 @@ object SettingsWidgets {
                 this.text = text
                 textSize = 17f
                 setTextColor(theme.textSecondary)
-                buttonTintList = ColorStateList(
+                androidx.core.widget.CompoundButtonCompat.setButtonTintList(this, ColorStateList(
                     arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
                     intArrayOf(theme.accent, theme.textSecondary),
-                )
+                ))
                 tag = value
                 isChecked = value == selected
             }
@@ -296,9 +296,11 @@ object SettingsWidgets {
         val seekBar = SeekBar(context).apply {
             max = CarPlayDisplayScale.MAX_PERCENT - CarPlayDisplayScale.MIN_PERCENT
             progress = initial - CarPlayDisplayScale.MIN_PERCENT
-            splitTrack = false
-            progressTintList = ColorStateList.valueOf(theme.accent)
-            thumbTintList = ColorStateList.valueOf(theme.accent)
+            if (android.os.Build.VERSION.SDK_INT >= 21) {
+                splitTrack = false
+                progressTintList = ColorStateList.valueOf(theme.accent)
+                thumbTintList = ColorStateList.valueOf(theme.accent)
+            }
             setOnSeekBarChangeListener(
                 object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {

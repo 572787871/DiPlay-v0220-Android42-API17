@@ -127,6 +127,11 @@ internal class MicrophoneUplink(
                 start()
             }
             true
+        } catch (error: SecurityException) {
+            Log.e(TAG, "microphone permission denied", error)
+            stats.failure(MicrophoneFailureStage.RECORDING, error)
+            release()
+            false
         } catch (error: Exception) {
             Log.e(TAG, "microphone recording failed", error)
             stats.failure(MicrophoneFailureStage.RECORDING, error)
@@ -159,7 +164,11 @@ internal class MicrophoneUplink(
                     bufferSize,
                 )
             }
-        } catch (error: Throwable) {
+        } catch (error: SecurityException) {
+            Log.e(TAG, "microphone permission denied source=$source", error)
+            stats.failure(MicrophoneFailureStage.RECORDER_CREATION, error)
+            return null
+        } catch (error: Exception) {
             Log.e(TAG, "microphone recorder creation failed source=$source", error)
             stats.failure(MicrophoneFailureStage.RECORDER_CREATION, error)
             return null
@@ -351,7 +360,8 @@ internal class MicrophoneUplink(
         }
     }
 
-    private fun routeType(recorder: AudioRecord): Int? = runCatching { recorder.routedDevice?.type }.getOrNull()
+    private fun routeType(recorder: AudioRecord): Int? = if (Build.VERSION.SDK_INT >= 23)
+        runCatching { recorder.routedDevice?.type }.getOrNull() else null
 
     /** Capture can continue with the same recorder if the optional native processor stops working. */
     @Synchronized

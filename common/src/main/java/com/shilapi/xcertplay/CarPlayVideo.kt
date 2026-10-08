@@ -12,7 +12,7 @@ import com.shilapi.xcertplay.host.R
 import com.shilapi.xcertplay.hud.BydNavigationOutputs
 import com.shilapi.xcertplay.orchestration.CarPlayController
 import com.shilapi.xcertplay.orchestration.CarPlayVideoListener
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -164,7 +164,7 @@ internal object CarPlayVideo : CarPlayVideoListener {
     /** What the iPhone answered to [resolveOnIphone]. */
     class LoadedUrl(val status: Int?, val data: ByteArray?, val location: String?)
 
-    private val pendingUrls = ConcurrentHashMap<Long, CompletableFuture<Map<*, *>>>()
+    private val pendingUrls = ConcurrentHashMap<Long, ArrayBlockingQueue<Map<*, *>>>()
     private val nextUrlRequest = AtomicLong(1)
 
     /**
@@ -175,7 +175,7 @@ internal object CarPlayVideo : CarPlayVideoListener {
     fun resolveOnIphone(url: String): LoadedUrl? {
         val stream = streamId ?: return null
         val id = nextUrlRequest.getAndIncrement()
-        val answer = CompletableFuture<Map<*, *>>()
+        val answer = ArrayBlockingQueue<Map<*, *>>(1)
         pendingUrls[id] = answer
         reply(stream, linkedMapOf(
             "type" to "unhandledURL",
@@ -189,7 +189,7 @@ internal object CarPlayVideo : CarPlayVideoListener {
         ))
         Log.i(TAG, "asked the iPhone to load a ${android.net.Uri.parse(url).scheme} URL request=$id")
         val response = try {
-            answer.get(URL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            answer.poll(URL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         } catch (_: Exception) {
             Log.w(TAG, "no iPhone answer for request=$id")
             null
@@ -209,7 +209,7 @@ internal object CarPlayVideo : CarPlayVideoListener {
         val response = message["response"] as? Map<*, *>
         val id = (response?.get("FCUP_Response_RequestID") as? Number)?.toLong()
         Log.i(TAG, "iPhone unhandledURL answer request=$id keys=${message.keys} responseKeys=${response?.keys}")
-        if (id != null) pendingUrls[id]?.complete(response)
+        if (id != null) pendingUrls[id]?.offer(response)
     }
 
     // While the player is closed the item stays paused where it was, so the iPhone keeps its position.

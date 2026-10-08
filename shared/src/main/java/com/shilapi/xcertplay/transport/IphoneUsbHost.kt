@@ -97,6 +97,18 @@ class IphoneUsbHost(
     fun discover(): List<UsbDevice> =
         usbManager.deviceList.values.filter { matcher.matches(it.vendorId, it.productId) }
 
+    /** KitKat's UsbDevice snapshot may omit the CarPlay configuration; inspect endpoint 0 off-main. */
+    internal fun inspectCarPlayConfigurationAsync(device: UsbDevice, executor: Executor,
+        callback: (CarPlayUsbConfiguration?) -> Unit) {
+        executor.execute {
+            val configuration = runCatching {
+                val connection = usbManager.openDevice(device) ?: return@runCatching null
+                try { IphoneCarPlayConfiguration.find(device, connection) } finally { connection.close() }
+            }.getOrNull()
+            callback(configuration)
+        }
+    }
+
     @Throws(IphoneUsbException::class)
     fun requestPermission(device: UsbDevice): PermissionRequest {
         requireConfiguredDevice(device)
@@ -258,7 +270,7 @@ class IphoneUsbHost(
         val sharedConnection = SharedUsbDeviceConnection.own(connection)
         var claimedInterface: UsbInterface? = null
         try {
-            val configuration = IphoneCarPlayConfiguration.find(device)
+            val configuration = IphoneCarPlayConfiguration.find(device, connection)
                 ?: throw IphoneUsbException.Protocol(
                     "Re-enumerated iPhone exposes no USBMUX CarPlay configuration",
                 )
@@ -310,6 +322,7 @@ class IphoneUsbHost(
                 outEndpoint = endpoints.first,
                 inEndpoint = endpoints.second,
                 onDiagnostic = onDiagnostic,
+                carPlayConfiguration = configuration,
             )
         } catch (error: Throwable) {
             if (claimedInterface != null) {
@@ -386,6 +399,7 @@ class Iap2UsbSession internal constructor(
     private val outEndpoint: UsbEndpoint,
     private val inEndpoint: UsbEndpoint,
     private val onDiagnostic: (String) -> Unit = {},
+    internal val carPlayConfiguration: CarPlayUsbConfiguration? = null,
 ) : Closeable {
     private val connection: UsbDeviceConnection
         get() = sharedConnection.connection

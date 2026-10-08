@@ -43,6 +43,7 @@ object CarPlayRotation {
         preferSoftwareHevcDecoder: Boolean = false,
         configures: (decoder: String, mime: String, side: Int) -> Boolean = ::configures,
     ): Int? {
+        if (Build.VERSION.SDK_INT < 21) return null
         val limit = picture.maxSide?.let { minOf(it, longSide) } ?: longSide
         val mime = if (hevc) MediaFormat.MIMETYPE_VIDEO_HEVC else MediaFormat.MIMETYPE_VIDEO_AVC
         val decoders = runCatching {

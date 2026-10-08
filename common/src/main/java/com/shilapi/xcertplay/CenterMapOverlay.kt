@@ -44,7 +44,7 @@ internal object CenterMapOverlay {
     var requestShow: (() -> Unit)? = null
     private val showIfBackground = Runnable { if (!diPlayInFront()) requestShow?.invoke() }
 
-    fun permitted(context: Context): Boolean = Settings.canDrawOverlays(context)
+    fun permitted(context: Context): Boolean = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(context)
 
     /** Shows the card shortly, unless a DiPlay screen is in front by then. */
     fun scheduleShow() {
@@ -138,11 +138,11 @@ internal object CenterMapOverlay {
         }
         val card = FrameLayout(context).apply {
             setBackgroundColor(Color.BLACK)
-            outlineProvider = object : ViewOutlineProvider() {
+            if (Build.VERSION.SDK_INT >= 21) outlineProvider = object : ViewOutlineProvider() {
                 override fun getOutline(view: View, outline: Outline) =
                     outline.setRoundRect(0, 0, view.width, view.height, radius)
             }
-            clipToOutline = true
+            if (Build.VERSION.SDK_INT >= 21) clipToOutline = true
             addView(video, FrameLayout.LayoutParams(-1, -1))
         }
         val slop = ViewConfiguration.get(context).scaledTouchSlop

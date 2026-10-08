@@ -1325,7 +1325,7 @@ class CarPlayHostActivity : ComponentActivity() {
         mainHandler.removeCallbacks(refreshTurnOverlay)
         AirPlayPersistence.overlaySettingsListener = null
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setTurnOverlayListener(null)
-        clusterMonitor?.stop()
+        if (Build.VERSION.SDK_INT >= 21) clusterMonitor?.stop()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
             val displayManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 getSystemService(android.hardware.display.DisplayManager::class.java)
@@ -3417,6 +3417,9 @@ class CarPlayHostActivity : ComponentActivity() {
         } else decoderCanvasSupport(display)
 
     private fun decoderCanvasSupport(display: AirPlayDisplayConfig): CanvasSupport = try {
+        if (Build.VERSION.SDK_INT < 21) {
+            CanvasSupport(false, "legacy_decoder_capabilities", "Keep the native screen canvas on Android 4.4")
+        } else {
         val mime = if (hevcEnabled) MediaFormat.MIMETYPE_VIDEO_HEVC else MediaFormat.MIMETYPE_VIDEO_AVC
         // Match MediaCodec.createDecoderByType's first suitable decoder; do not silently force
         // an enlarged stream through a software decoder on a slower head unit.
@@ -3446,6 +3449,7 @@ class CarPlayHostActivity : ComponentActivity() {
                     "widths=${video?.supportedWidths} heights=${video?.supportedHeights} " +
                     "alignment=${video?.widthAlignment}x${video?.heightAlignment} " +
                     "fpsRange=${video?.supportedFrameRates} result=$reason")
+        }
         }
     } catch (error: Exception) {
         CanvasSupport(false, "capability_query_${error.javaClass.simpleName}",
