@@ -1,10 +1,12 @@
 # DiPlay Legacy Android
 
-> This project is modified from [shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay), with a focus on compatibility with older Android versions and legacy Android-based head units.
+[English](README.md) · [简体中文](README.zh-CN.md)
+
+> This project is modified from [shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay), with a focus on compatibility with older Android versions (down to Android 4.4 KitKat / API 19) and legacy Android-based head units.
 
 > Upstream project: https://github.com/shihabal3amri/DiPlay
 
-**CarPlay for compatible BYD Android head units.** Wired and wireless, with the familiar DiAuto interface. Independent app: `com.shihab.diplay`.
+**CarPlay for compatible BYD and legacy Android head units.** Wired and wireless, with the familiar DiAuto interface. Independent app: `com.shihab.diplay`.
 
 > **BYD support scope:** These projects focus on BYD cars. They may work on other brands, but other brands are unsupported and there are no plans to add support or fix brand-specific incompatibilities.
 

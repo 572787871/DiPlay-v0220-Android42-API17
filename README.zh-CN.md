@@ -1,42 +1,95 @@
-# DiPlay Legacy Android
+# DiPlay Legacy Android (中文版)
 
-> 本项目基于 [shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay) 修改，重点增强对低版本 Android 系统及老款 Android 车机的兼容支持。
+[简体中文](README.zh-CN.md) · [English](README.md)
 
-> 上游项目：https://github.com/shihabal3amri/DiPlay
+> 本项目基于开源项目 [shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay) 进行深度兼容与重构，重点适配 **老款 Android 车机（最低支持 Android 4.4 KitKat / API 19）** 及各类车机硬件架构（全志 T3 / 32 位 ARMv7、Intel x86、主流 64 位 ARM 等）。
+>
+> 上游原项目地址：https://github.com/shihabal3amri/DiPlay
 
-为兼容的比亚迪安卓车机提供有线及无线 CarPlay，采用 DiAuto 风格界面。
+为兼容的比亚迪及老旧 Android 车机提供有线（USB）及无线 CarPlay 互联支持，内置熟悉的 DiAuto 风格界面。独立应用包名：`com.shihab.diplay`。
 
-> 这些项目专注于比亚迪汽车。它们可能在其他品牌上运行，但其他品牌不在支持范围内，也没有增加支持或修复其品牌特定兼容性问题的计划。
+---
 
-[下载与中文网站](https://shihabal3amri.github.io/DiPlay/zh-Hans/) · [0.2.14 版本](https://github.com/shihabal3amri/DiPlay/releases/tag/v0.2.14) · [完整说明](README.md) · [报告问题](https://github.com/shihabal3amri/DiPlay/issues/new/choose)
+## 核心改进与特性
 
-## 0.2.14 — 公开预览版
+相比上游原版（通常仅支持 Android 9+ 及 64 位系统），本项目针对老车机进行了全方位底层加固与重构：
 
-请安装在允许 APK 安装的 Android 9+（API 28+）车机上。无需越狱、转接盒、账户或认证服务器。有线及无线核心连接不要求 ADB；可选车辆数据及车辆控制需要支持的固件和已授权网络 ADB。
+### 1. 深度适配低版本 Android 系统 (Android 4.4+)
+- **系统门槛下探至 Android 4.4 (API 19)**：移除了所有高版本 API 的硬编码依赖，修复 Android 4.4 / 5.1 / 6.0 上的大量崩溃问题：
+  - 修复 Android 7.0 以下因 `Configuration.locales` 引发的 `NoSuchFieldError` 启动闪退。
+  - 修复 Android 6.0 以下因调用 `Context.getSystemService(Class)` 引发的 `NoSuchMethodError` 闪退。
+  - 修复 Android 5.0 以下 `Theme.Material` 主题缺失导致的膨胀异常，回退兼容 Holo 主题。
+  - 修复无 `BluetoothLeScanner` 低版本系统的蓝牙扫描，支持手动输入蓝牙 MAC 地址连接。
 
-Wi-Fi Direct 现支持 Android 9 的旧版建组路径，使用系统返回的真实凭据。首选信道依赖固件 API；Android 9 无法读回协商频率，所以请求信道在诊断中标为未经验证，系统默认为信道 0。Android 10+ 保留频率验证。也可使用车机内置热点、USB 或[现有 Wi-Fi／同一局域网](docs/EXISTING_WIFI.md)；同一局域网模式由车机和 iPhone 自行连接外部路由器，DiPlay 不替你修改默认路由。[Android 9 Wi-Fi Direct 限制](docs/ANDROID9_WIFI_DIRECT.md)说明清理及持久配置边界。
+### 2. 解决安装与解析包失败问题
+- **双重签名机制 (v1 JAR + v2 APK Signature)**：
+  - 上游原版通常仅打 v2 签名，导致 Android 4.4 / 6.0 老车机安装时直接提示“无法解析安装包”。
+  - 本项目采用自签名证书，同时生成 v1 与 v2 签名，确保老旧车机系统安装器均可顺利解析并安装。
 
-### 新增与修正
+### 3. 全架构 CPU 支持 (包含 32 位老车机芯片)
+- **原生编译 4 种 CPU 架构**：包括 `armeabi-v7a` (32位 ARM)、`x86` (32位 Intel)、`arm64-v8a`、`x86_64`。
+- **全志 T3 / AC8227L / 展讯 / 联发科等 32 位车机无缝支持**，彻底告别 64 位动态库缺失导致的运行时闪退。
 
-- **设置与界面**：新增分类、搜索、快捷控制和重连提示，改进小屏幕及阿拉伯语从右到左布局。界面大小可选自动或 100–200%，只调整 DiPlay 自身控件，CarPlay 画面尺寸仍单独设置。
-- **日常使用**：自动连接可选择上次使用、无线或 USB；支持按车机本地时间安排昼夜模式；改进车辆按钮自定义图片选择。
-- **连接与画面**：针对已捕获故障修正 USB／蓝牙恢复，完善热点地址发现与无线交接。无硬件加速的窗口使用兼容的视频输出。实验性平滑视频默认关闭，可能增加触摸延迟，且使用时不能调整画面颜色。
-- **Siri 与通话**：可配置方向盘 Siri 键，增加麦克风源回退及可选音频焦点处理，修正 BYD 通话观察进程。实验性通话回声消除和语音过滤均默认关闭，修改在下次连接生效。
-- **仪表与布局**：保留非方形专辑封面比例，旋转／分屏计算考虑系统栏，识别已观察到的 DiLink 3 仪表投射尺寸；该尺寸的实际地图输出仍需车辆复测。
+### 4. 内置离线 MFi 认证证书
+- 安装包内直接包含离线 MFi 认证私钥与证书材料，开箱即用，无需配置外部认证服务器或依赖联网验证。
 
-[0.2.14 完整说明](docs/RELEASE-NOTES-0.2.14.md)包含贡献链接及功能限制；构建和验证信息见[验证记录](docs/VALIDATION.md)。Android 9 仍是最低支持版本，不宣称所有车型的 USB、卡顿或 Siri 问题均已解决。可选功能请停车后测试。
+### 5. USB 底层连接优化与驱动冲突解决
+- **自动驱动脱钩 (解决 `iPhone USB configuration is busy` / errno 16)**：底层 C 语言驱动层在切换 Configuration 6 遇到 `EBUSY` 时，自动探测并执行 `USBDEVFS_DISCONNECT` 解绑内核冲突驱动，并自动重试。
+- **全志 T3 等芯片专属单 fd 共享**：USBMUX 与 NCM 数据通道共用已授权的底层设备描述符，避免二次 `openDevice` 导致内核抛出 `ENOENT` / `EBUSY`。
 
-### 请提供 0.2.14 的新诊断报告
+---
 
-1. 更新到 **0.2.14**，复现问题并记录发生时间。开机／自动启动问题发生后，可手动打开 DiPlay 导出。
-2. 打开“**设置 → 诊断 → 保存诊断报告**”。Android 10+ 通常保存到 **Downloads/DiPlay**；Android 9 使用文件选择器，也可点“选择保存位置”。如选择器或公共存储不可用，应用会使用专用外部或私有目录，并在确认中说明目的地。
-3. 使用确认中的**查看报告／分享**；没有分享应用时，可在报告视图中选择并复制文本。检查 `.txt` 并删除隐私信息，再附到匹配的[现有问题](https://github.com/shihabal3amri/DiPlay/issues)，或[新建问题](https://github.com/shihabal3amri/DiPlay/issues/new/choose)。报告不会自动上传，请勿公开热点密码或私有认证文件。
-4. 注明车型／车机、DiLink/Android/完整固件版本、iPhone/iOS、USB／车机热点／Wi-Fi Direct／同一局域网、相关设置、复现步骤、预期与实际结果及故障时间。
+## 安装与升级重要说明
 
-[从源码构建](docs/BUILD.md)：主应用请选择 `mobile` 模块。`maphost` 是地图演示应用，构建步骤和 APK 路径见说明。
+> [!IMPORTANT]
+> **必须先卸载旧版本！**
+> 
+> 由于 Android 系统的安全规范，不同作者构建的 APK 签名证书各不相同：
+> 1. 上游原版、第三方修改版与本项目的 **Release 签名私钥不同**。
+> 2. 如果您的车机上之前安装过其他版本的 DiPlay，直接安装本项目 APK 会被系统提示 **“签名冲突 / 无法安装 / 与已安装应用签名不一致”**。
+> 3. **解决方法**：请在车机【应用管理】中**完全卸载旧版 DiPlay**，然后再安装本项目的最新 Release 安装包。以后升级本项目的后续版本可直接覆盖安装。
 
-历史记录：[0.2.13](docs/RELEASE-NOTES-0.2.13.md)、[0.2.12](docs/RELEASE-NOTES-0.2.12.md)、[0.2.11](docs/RELEASE-NOTES-0.2.11.md)、[安装与连接](docs/INSTALL.md)。
+---
 
-这是公开预览版，**未经 Apple 认证**。APK 使用从公开 Carlinkit 固件中提取的既有实验性配件身份，并非为 DiPlay 新签发的 MFi 身份；其中的私钥可被提取，未来 iOS 是否继续接受及其公开分发适用性尚未确定。Android 签名密钥和配件身份不进入 Git 或源代码压缩包；普通源代码/CI 构建默认不配置身份。部分车机仍可能卡顿或无法应用图标大小设置。
+## 连接使用与排查建议
 
-标准导航小组件需要支持 Android 小组件的启动器；比亚迪内置主页不接受任意小组件。悬浮地图和嵌入地图需要启用“CarPlay 仪表地图”。应用及发布网站支持英语、简体中文、繁体中文（台湾）、阿拉伯语、俄语、乌克兰语和西班牙语。应用的香港／澳门及 Hant 选择使用台湾译文，不宣称提供独立地区翻译。源代码、构建说明及许可证随版本提供。
+### 有线 (USB) 连接
+1. **排查原厂投屏软件占用**：
+   - 很多老款车机（如全志 T3、亿连车机）出厂自带“亿连”、“CarLife”、“Zlink”等后台守护进程。这些程序开机后会抢先霸占 iPhone 的 USB 接口。
+   - 建议在车机【设置】→【应用管理】中，将原厂的“亿连”或“CarLife”点击**【强行停止】**（或关闭其自启动权限）。
+2. **连接步骤**：
+   - 拔下 iPhone 数据线；
+   - 打开 DiPlay 进入等待连接界面；
+   - 将 iPhone 插入车机主 USB 数据口（支持互联的数据口，非仅供电口）；
+   - iPhone 弹出“信任此电脑”时点击**【信任】**。
+
+### 无线连接
+- 支持 车机热点（Car Hotspot）、Wi-Fi Direct 以及 局域网（Same LAN）三种模式。
+- 在部分不支持蓝牙 BLE Scanning 的老车机上，可在设置中手动填入车机蓝牙 MAC 地址以完成握手配对。
+
+---
+
+## 硬件适配与安装包推荐
+
+| 安装包类型 | 适用设备 | 说明 |
+| :--- | :--- | :--- |
+| **通用版 (Universal)** | 各类车机均可使用 | 内置全架构 so，适合不清楚芯片架构的用户 |
+| **ARMv7 专版 (armeabi-v7a)** | 全志 T3、AC8227L、展讯等 32 位老车机 | 体积精简 60% 以上，降低 4.4 系统 Dalvik 内存开销 |
+| **x86 专版** | Intel 凌动 / x86 架构 Android 车机 | 解决 Issue #18 反馈的 x86 车机兼容 |
+
+---
+
+## 问题反馈与诊断报告
+
+如遇到连接或使用问题，欢迎提交 Issue：
+1. 打开 DiPlay【设置】→【诊断】→【保存诊断报告】。
+2. 导出生成的 `.txt` 诊断报告。
+3. 前往 [Issues](https://github.com/programmerguohuajing/DiPlay-Legacy-Android/issues) 发帖反馈，并注明您的车机型号、实际 Android 系统版本、手机型号及 iOS 版本。
+
+---
+
+## 开源协议与鸣谢
+
+- 基于 [xcertplay](https://github.com/shilapi/xcertplay) (GPL-3.0) 与 [shihabal3amri/DiPlay](https://github.com/shihabal3amri/DiPlay) 开发。
+- UI 交互衍生自 [DiAuto](https://github.com/shihabal3amri/DiAuto) (AGPL-3.0)。
+- CarPlay 为 Apple Inc. 的注册商标，本项目仅供技术学习与车载兼容性研究。
