@@ -19,8 +19,8 @@ android {
         minSdk = 19
         targetSdk = 37
         multiDexEnabled = true
-        versionCode = 36
-        versionName = "0.2.16-legacy.1"
+        versionCode = 37
+        versionName = "0.2.17-legacy.1"
 
     }
 
