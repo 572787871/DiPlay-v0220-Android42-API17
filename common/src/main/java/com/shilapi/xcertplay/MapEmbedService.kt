@@ -93,7 +93,15 @@ class MapEmbedService : Service() {
             return
         }
         embeds.remove(client.binder)?.release()
-        val display = getSystemService(DisplayManager::class.java)?.getDisplay(data.getInt(KEY_DISPLAY_ID))
+        val displayManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                getSystemService(DisplayManager::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+            }
+        } else null
+        val display = displayManager?.getDisplay(data.getInt(KEY_DISPLAY_ID))
         if (display == null) {
             send(client, MSG_ERROR, Bundle().apply { putString(KEY_ERROR, ERROR_BAD_REQUEST) })
             return

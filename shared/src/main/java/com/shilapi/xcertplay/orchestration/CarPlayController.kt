@@ -181,9 +181,19 @@ class CarPlayController(
     private val appContext = context.applicationContext
     private val diagnosticAttempt = diagnosticAttempts.incrementAndGet()
     private val diagnosticRun = AtomicInteger()
-    private val usbManager: UsbManager? = context.getSystemService(UsbManager::class.java)
-    private val bluetoothAdapter =
+    private val usbManager: UsbManager? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        context.getSystemService(UsbManager::class.java)
+    } else {
+        @Suppress("DEPRECATION")
+        context.getSystemService(Context.USB_SERVICE) as? UsbManager
+    }
+    private val bluetoothAdapter = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
         appContext.getSystemService(BluetoothManager::class.java)?.adapter
+    } else {
+        @Suppress("DEPRECATION")
+        (appContext.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+            ?: android.bluetooth.BluetoothAdapter.getDefaultAdapter()
+    }
     private val iphoneHost by lazy {
         IphoneUsbHost(
             appContext,

@@ -13,6 +13,7 @@ import android.graphics.drawable.ColorDrawable
 import android.view.WindowManager
 import android.graphics.Point
 import android.hardware.display.DisplayManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.Display
@@ -214,8 +215,18 @@ internal class ClusterMapPresentation(
             }
         }
 
+        private fun displayManager(context: Context): DisplayManager? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    context.getSystemService(DisplayManager::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
+                }
+            } else null
+
         fun describeDisplays(context: Context): String =
-            context.getSystemService(DisplayManager::class.java)?.displays
+            displayManager(context)?.displays
                 ?.joinToString {
                     val size = sizeOf(it)
                     "${it.displayId}:${it.name} ${size.x}x${size.y} flags=${it.flags} valid=${it.isValid}"
@@ -225,7 +236,7 @@ internal class ClusterMapPresentation(
             appendLine("clusterEnabled=${AirPlayPersistence.loadClusterMapEnabled(context)}")
             appendLine("navigationReceiverAvailable=${com.shilapi.xcertplay.hud.BydOutputSettings.navigationAvailable(context)}")
             appendLine("allDisplays=${describeDisplays(context)}")
-            val presentations = context.getSystemService(DisplayManager::class.java)
+            val presentations = displayManager(context)
                 ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).orEmpty()
             appendLine("presentationDisplayIds=${presentations.joinToString { it.displayId.toString() }}")
             val selected = findDisplay(context)

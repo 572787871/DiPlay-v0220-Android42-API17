@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.PixelFormat
 import android.graphics.SurfaceTexture
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -72,7 +73,12 @@ internal object CenterMapOverlay {
         if (root != null) return true
         if (!aspect.isFinite() || aspect <= 0) return false
         if (!permitted(context)) return false
-        val windows = context.getSystemService(WindowManager::class.java) ?: return false
+        val windows = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            context.getSystemService(WindowManager::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        } ?: return false
         val metrics = context.resources.displayMetrics
         val screenWidth = metrics.widthPixels
         val screenHeight = metrics.heightPixels
@@ -253,7 +259,13 @@ internal object CenterMapOverlay {
     fun hide() {
         val view = root ?: return
         root = null
-        runCatching { view.context.getSystemService(WindowManager::class.java)?.removeViewImmediate(view) }
+        val windowManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            view.context.getSystemService(WindowManager::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            view.context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        }
+        runCatching { windowManager?.removeViewImmediate(view) }
         Log.i(TAG, "card hidden")
     }
 

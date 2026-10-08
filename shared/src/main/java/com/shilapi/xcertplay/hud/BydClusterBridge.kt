@@ -3,6 +3,7 @@ package com.shilapi.xcertplay.hud
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import com.shilapi.xcertplay.iap2.wire.Iap2Frame
 import java.util.concurrent.Executors
@@ -179,9 +180,16 @@ internal object BydClusterBridge {
         BydDiLink3ClusterOutput.prepareDisplay(appContext) { projectionDisplayPresent(appContext) }
     }
 
-    private fun projectionDisplayPresent(appContext: Context): Boolean =
-        appContext.getSystemService(android.hardware.display.DisplayManager::class.java)
-            ?.displays?.any { it.name == DILINK3_DISPLAY } == true
+    private fun projectionDisplayPresent(appContext: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1) return false
+        val displayManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            appContext.getSystemService(android.hardware.display.DisplayManager::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            appContext.getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+        }
+        return displayManager?.displays?.any { it.name == DILINK3_DISPLAY } == true
+    }
 
     private const val DILINK3_DISPLAY = "fission_bg_xdjaVirtualSurface"
 

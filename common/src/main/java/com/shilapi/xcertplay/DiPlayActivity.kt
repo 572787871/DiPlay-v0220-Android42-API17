@@ -2215,7 +2215,13 @@ class DiPlayActivity : ComponentActivity() {
             setPadding(0, dp(16), 0, dp(16))
         })
         body.addView(button(getString(R.string.copy_command), false) {
-            getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(
+            val clipboard = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                getSystemService(android.content.ClipboardManager::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+            }
+            clipboard?.setPrimaryClip(
                 android.content.ClipData.newPlainText(getString(R.string.clipboard_usage_access), command))
             toast(getString(R.string.copied_to_the_car_clipboard_run_the_command_on_your_comput))
         }, matchButton(0, 56))
@@ -2352,7 +2358,13 @@ class DiPlayActivity : ComponentActivity() {
             setBackgroundColor(0x22FFFFFF)
         })
         body.addView(button(getString(R.string.copy_command), false) {
-            getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(
+            val clipboard = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                getSystemService(android.content.ClipboardManager::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+            }
+            clipboard?.setPrimaryClip(
                 android.content.ClipData.newPlainText("DiPlay ADB Command", adbCmd)
             )
             toast(getString(R.string.copied_to_the_car_clipboard_run_the_command_on_your_comput))

@@ -5,6 +5,7 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import java.util.concurrent.Executors
@@ -76,8 +77,14 @@ internal class HomeScreenMonitor(context: Context, private val onChange: (Boolea
 
     private fun poll() {
         val now = System.currentTimeMillis()
-        val events = runCatching { context.getSystemService(UsageStatsManager::class.java).queryEvents(since, now) }
-            .getOrNull() ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) return
+        val usageManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            context.getSystemService(UsageStatsManager::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+        } ?: return
+        val events = runCatching { usageManager.queryEvents(since, now) }.getOrNull() ?: return
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
             events.getNextEvent(event)

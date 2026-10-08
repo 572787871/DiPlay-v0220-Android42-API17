@@ -7,6 +7,7 @@ import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -316,6 +317,7 @@ class CarPlayVideoActivity : Activity() {
         .joinToString(" <- ") { "${it.javaClass.simpleName}(${it.message?.replace(Regex("\\w+://\\S+"), "<url>")})" }
 
     private fun playbackNetworkSummary(): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return "network=legacy"
         val manager = getSystemService(ConnectivityManager::class.java)
         val network = manager?.activeNetwork
         val capabilities = network?.let(manager::getNetworkCapabilities)

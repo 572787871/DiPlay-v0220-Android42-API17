@@ -573,9 +573,15 @@ class CarPlayHostActivity : ComponentActivity() {
             finish(); return
         }
         WheelKeyService.restoreIfNeeded(this)
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        getSystemService(android.hardware.display.DisplayManager::class.java)
-            ?.registerDisplayListener(clusterDisplayListener, mainHandler)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            val displayManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                getSystemService(android.hardware.display.DisplayManager::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            }
+            displayManager?.registerDisplayListener(clusterDisplayListener, mainHandler)
+        }
         initializeSessionLog()
         lastConfiguration = Configuration(resources.configuration)
         darkMode = savedInstanceState?.getBoolean("carplay_night_active")
@@ -1320,8 +1326,15 @@ class CarPlayHostActivity : ComponentActivity() {
         AirPlayPersistence.overlaySettingsListener = null
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setTurnOverlayListener(null)
         clusterMonitor?.stop()
-        getSystemService(android.hardware.display.DisplayManager::class.java)
-            ?.unregisterDisplayListener(clusterDisplayListener)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            val displayManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                getSystemService(android.hardware.display.DisplayManager::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            }
+            displayManager?.unregisterDisplayListener(clusterDisplayListener)
+        }
         mainHandler.removeCallbacks(hideIdleCenterMap)
         homeMonitor?.stop()
         CenterMapOverlay.hide()

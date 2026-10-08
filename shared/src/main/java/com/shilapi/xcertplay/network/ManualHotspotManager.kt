@@ -39,8 +39,12 @@ class ManualHotspotManager(
     private val waitLock = Object()
     private var confirmed: HotspotSelection? = null
     private var lastSampleLog = emptyList<String>()
-    private val wifiManager = appContext.getSystemService(WifiManager::class.java)
-        ?: throw IllegalStateException("WifiManager is unavailable")
+    private val wifiManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        appContext.getSystemService(WifiManager::class.java)
+    } else {
+        @Suppress("DEPRECATION")
+        appContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+    } ?: throw IllegalStateException("WifiManager is unavailable")
     private val expectedSsid = ssid
     private val passphrase = passphrase
     private val expectedBand = band
