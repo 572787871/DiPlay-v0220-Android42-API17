@@ -1,6 +1,8 @@
 [versions]
 agp = "9.3.0"
-coreKtx = "1.13.1"
+# 1.13 raises AndroidX Core's manifest minSdk to 19.  1.12.0 keeps the
+# required APIs while officially supporting API 17.
+coreKtx = "1.12.0"
 activity = "1.8.2"
 lifecycleRuntimeKtx = "2.6.1"
 kotlin = "2.2.10"
