@@ -4,23 +4,39 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
-// Optional local-only input. CI and ordinary source builds contain no accessory identity.
+// Standalone authentication is an explicit, local-only build input.  Do not fall back to a
+// repository directory: a release must never silently package stale or unintended identity data.
 val localAuthenticationAssets = providers.environmentVariable("DIPLAY_AUTH_ASSETS_DIR")
     .orNull?.let { file(it).canonicalFile }
-    ?: rootProject.file(".private/runtime-assets").takeIf { it.isDirectory }?.canonicalFile
-    ?: rootProject.file("auth-assets").takeIf { it.isDirectory }?.canonicalFile
+val androidKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+val androidKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+val androidKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+val androidKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+val androidKeystoreFile = androidKeystorePath?.let { file(it).canonicalFile }
+val externalSigningValues = listOf(
+    androidKeystorePath,
+    androidKeystorePassword,
+    androidKeyAlias,
+    androidKeyPassword,
+)
+val hasExternalSigning = externalSigningValues.all { !it.isNullOrBlank() }
+check(externalSigningValues.all { it.isNullOrBlank() } || hasExternalSigning) {
+    "Android signing configuration is incomplete"
+}
 
 android {
     namespace = "com.shilapi.xcertplay"
     testBuildType = providers.gradleProperty("legacyInstrumentationBuildType").getOrElse("debug")
     compileSdk {
-        version = release(37)
+        version = release(36)
     }
 
     defaultConfig {
         applicationId = "com.shihab.diplay"
-        minSdk = 19
-        targetSdk = 37
+        // The 2017 CS55 head unit runs Android 4.2.2/API 17.  Newer-only
+        // paths remain runtime guarded; this is the installation baseline.
+        minSdk = 17
+        targetSdk = 36
         multiDexEnabled = true
         multiDexKeepProguard = file("multidex-config.pro")
         testInstrumentationRunner = "com.shilapi.xcertplay.T3LegacyInstrumentation"
@@ -34,13 +50,11 @@ android {
 
     signingConfigs {
         create("release") {
-            val localKeystore = rootProject.file("release-signing.jks").takeIf { it.isFile }
-                ?: rootProject.file("release-signing.keystore").takeIf { it.isFile }
-            storeFile = providers.environmentVariable("ANDROID_KEYSTORE_PATH")
-                .orNull?.let { file(it) } ?: localKeystore ?: file("missing-release-keystore.jks")
-            storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").getOrElse("diplay123456")
-            keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").getOrElse("diplay")
-            keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").getOrElse("diplay123456")
+            storeFile = androidKeystoreFile ?: file("missing-release-keystore.jks")
+            storePassword = androidKeystorePassword ?: ""
+            keyAlias = androidKeyAlias ?: ""
+            keyPassword = androidKeyPassword ?: ""
+            enableV1Signing = true
         }
     }
 
@@ -48,12 +62,13 @@ android {
         debug {
             applicationIdSuffix = ".hudtest"
             versionNameSuffix = "-hud-test"
+            if (hasExternalSigning) signingConfig = signingConfigs.getByName("release")
         }
         release {
             optimization {
                 enable = false
             }
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasExternalSigning) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
     compileOptions {
@@ -139,14 +154,24 @@ val verifyStandaloneAuthentication by tasks.registering(JavaExec::class) {
     localAuthenticationAssets?.let { args(it.resolve("offline-mfi").absolutePath) }
 }
 tasks.named("preBuild") { mustRunAfter(verifyStandaloneAuthentication) }
+val verifyStandaloneSigning by tasks.registering {
+    group = "verification"
+    description = "Require the external Android signing key for an authenticated standalone APK."
+    notCompatibleWithConfigurationCache("Reads protected signing inputs supplied only for this invocation")
+    doLast {
+        check(hasExternalSigning) { "Standalone builds require complete external Android signing variables" }
+        check(androidKeystoreFile?.isFile == true) { "Standalone Android signing keystore is missing" }
+    }
+}
+tasks.named("preBuild") { mustRunAfter(verifyStandaloneSigning) }
 tasks.register("assembleStandaloneDebug") {
     group = "build"
     description = "Build a standalone car-test APK with explicitly provisioned authentication."
-    dependsOn(verifyStandaloneAuthentication, "assembleDebug")
+    dependsOn(verifyStandaloneAuthentication, verifyStandaloneSigning, "assembleDebug")
 }
 
 tasks.register("assembleStandaloneRelease") {
     group = "build"
     description = "Build a signed standalone APK with explicitly provisioned authentication."
-    dependsOn(verifyStandaloneAuthentication, "assembleRelease")
+    dependsOn(verifyStandaloneAuthentication, verifyStandaloneSigning, "assembleRelease")
 }

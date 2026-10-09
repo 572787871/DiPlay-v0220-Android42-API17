@@ -1,0 +1,166 @@
+name: Build DiPlay v0.2.20 Android 4.2 API17
+
+on:
+  workflow_dispatch:
+    inputs:
+      standalone:
+        description: 'Build the authenticated Standalone APK (requires legally provisioned MFi secrets)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build-api17-armv7-test:
+    name: Build v0.2.20 API17 signed ARMv7 test APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android 36 and the API17-compatible NDK
+        run: |
+          sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+          export PATH="$sdk_root/cmdline-tools/latest/bin:$sdk_root/platform-tools:$PATH"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;23.1.7779620"
+
+      - name: Prepare protected Android signing input
+        env:
+          KEYSTORE_B64: ${{ secrets.DIPLAY_ANDROID_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64"
+          keystore="$RUNNER_TEMP/diplay-signing.jks"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$keystore"
+          chmod 600 "$keystore"
+          test -s "$keystore"
+          echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+
+      - name: Build source-only API17 ARMv7 test APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DIPLAY_ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.DIPLAY_ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.DIPLAY_ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :mobile:assembleDebug --stacktrace --no-daemon
+
+      - name: Verify API17 test package, ABI, v1 signature and auth loader boundary
+        run: |
+          set -euo pipefail
+          apk="mobile/build/outputs/apk/debug/mobile-debug.apk"
+          test -f "$apk"
+          badging="$($ANDROID_HOME/build-tools/36.0.0/aapt dump badging "$apk")"
+          grep -Fq "package: name='com.shihab.diplay.hudtest'" <<< "$badging"
+          grep -Fq "sdkVersion:'17'" <<< "$badging"
+          grep -Fq "targetSdkVersion:'36'" <<< "$badging"
+          native_abis="$(unzip -Z1 "$apk" | awk -F/ '/^lib\/[^/]+\/[^/]+\.so$/ { print $2 }' | sort -u)"
+          test "$native_abis" = "armeabi-v7a"
+          unzip -Z1 "$apk" | grep -Fxq 'lib/armeabi-v7a/libxcertplay_i2c.so'
+          unzip -Z1 "$apk" | grep -Fxq 'lib/armeabi-v7a/liblocal_hotspot_radio.so'
+          test "$(unzip -Z1 "$apk" | grep -Ec '^assets/offline-mfi/(identity\.pk8|certificate\.p7b)$')" -eq 0
+          unzip -Z1 "$apk" | grep -Fq 'classes.dex'
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apksigner.txt"
+          grep -Fq 'Verified using v1 scheme (JAR signing): true' "$RUNNER_TEMP/apksigner.txt"
+          install -d dist
+          cp "$apk" dist/DiPlay-v0.2.20-Android42-API17-Test.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump permissions "$apk" > dist/manifest-permissions.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DiPlay-v0.2.20-Android42-API17-Test
+          path: |
+            dist/DiPlay-v0.2.20-Android42-API17-Test.apk
+            dist/manifest-permissions.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  build-api17-armv7-standalone:
+    name: Build v0.2.20 authenticated API17 ARMv7 Standalone APK
+    if: ${{ inputs.standalone == true }}
+    needs: build-api17-armv7-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android 36 and the API17-compatible NDK
+        run: |
+          sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+          export PATH="$sdk_root/cmdline-tools/latest/bin:$sdk_root/platform-tools:$PATH"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;23.1.7779620"
+
+      - name: Prepare protected standalone inputs
+        env:
+          IDENTITY_PK8_B64: ${{ secrets.DIPLAY_MFI_IDENTITY_PK8_B64 }}
+          CERTIFICATE_P7B_B64: ${{ secrets.DIPLAY_MFI_CERTIFICATE_P7B_B64 }}
+          KEYSTORE_B64: ${{ secrets.DIPLAY_ANDROID_KEYSTORE_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "$IDENTITY_PK8_B64"
+          test -n "$CERTIFICATE_P7B_B64"
+          test -n "$KEYSTORE_B64"
+          auth_dir="$RUNNER_TEMP/diplay-auth"
+          keystore="$RUNNER_TEMP/diplay-signing.jks"
+          install -d -m 700 "$auth_dir/offline-mfi"
+          printf '%s' "$IDENTITY_PK8_B64" | base64 --decode > "$auth_dir/offline-mfi/identity.pk8"
+          printf '%s' "$CERTIFICATE_P7B_B64" | base64 --decode > "$auth_dir/offline-mfi/certificate.p7b"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$keystore"
+          chmod 600 "$auth_dir/offline-mfi/identity.pk8" "$auth_dir/offline-mfi/certificate.p7b" "$keystore"
+          echo "DIPLAY_AUTH_ASSETS_DIR=$auth_dir" >> "$GITHUB_ENV"
+          echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+
+      - name: Build authenticated API17 ARMv7 Standalone APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.DIPLAY_ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.DIPLAY_ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.DIPLAY_ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :mobile:assembleStandaloneDebug --stacktrace --no-daemon
+
+      - name: Verify authenticated API17 Standalone APK without exposing materials
+        run: |
+          set -euo pipefail
+          apk="mobile/build/outputs/apk/debug/mobile-debug.apk"
+          badging="$($ANDROID_HOME/build-tools/36.0.0/aapt dump badging "$apk")"
+          grep -Fq "sdkVersion:'17'" <<< "$badging"
+          native_abis="$(unzip -Z1 "$apk" | awk -F/ '/^lib\/[^/]+\/[^/]+\.so$/ { print $2 }' | sort -u)"
+          test "$native_abis" = "armeabi-v7a"
+          test "$(unzip -Z1 "$apk" | grep -Ec '^assets/offline-mfi/(identity\.pk8|certificate\.p7b)$')" -eq 2
+          cmp -s <(unzip -p "$apk" assets/offline-mfi/identity.pk8) "$DIPLAY_AUTH_ASSETS_DIR/offline-mfi/identity.pk8"
+          cmp -s <(unzip -p "$apk" assets/offline-mfi/certificate.p7b) "$DIPLAY_AUTH_ASSETS_DIR/offline-mfi/certificate.p7b"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -P 16 4 "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk" | tee "$RUNNER_TEMP/apksigner.txt"
+          grep -Fq 'Verified using v1 scheme (JAR signing): true' "$RUNNER_TEMP/apksigner.txt"
+          install -d dist
+          cp "$apk" dist/DiPlay-v0.2.20-Android42-API17-Standalone.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          # This stays a workflow artifact. Never publish an APK containing identity credentials as a public release asset.
+          name: DiPlay-v0.2.20-Android42-API17-Standalone
+          path: dist/DiPlay-v0.2.20-Android42-API17-Standalone.apk
+          if-no-files-found: error
+          retention-days: 7
