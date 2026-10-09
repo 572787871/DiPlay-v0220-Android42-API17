@@ -1,6 +1,9 @@
 name: Build DiPlay v0.2.20 Android 4.2 API17
 
 on:
+  push:
+    branches:
+      - api17-cs55-v0220
   workflow_dispatch:
     inputs:
       standalone:
